@@ -61,7 +61,7 @@ func DefaultParams(service string) *QueryParam {
 // either read or buffer.
 func Query(params *QueryParam) error {
 	// Create a new client
-	client, err := newClient()
+	client, err := NewClient()
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func Query(params *QueryParam) error {
 
 	// Set the multicast interface
 	if params.Interface != nil {
-		if err := client.setInterface(params.Interface); err != nil {
+		if err := client.SetInterface(params.Interface); err != nil {
 			return err
 		}
 	}
@@ -83,7 +83,7 @@ func Query(params *QueryParam) error {
 	}
 
 	// Run the query
-	return client.query(params)
+	return client.Query(params)
 }
 
 // Lookup is the same as Query, however it uses all the default parameters
@@ -95,7 +95,7 @@ func Lookup(service string, entries chan<- *ServiceEntry) error {
 
 // Client provides a query interface that can be used to
 // search for service providers using mDNS
-type client struct {
+type Client struct {
 	ipv4UnicastConn *net.UDPConn
 	ipv6UnicastConn *net.UDPConn
 
@@ -108,7 +108,7 @@ type client struct {
 
 // NewClient creates a new mdns Client that can be used to query
 // for records
-func newClient() (*client, error) {
+func NewClient() (*Client, error) {
 	// TODO(reddaly): At least attempt to bind to the port required in the spec.
 	// Create a IPv4 listener
 	uconn4, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
@@ -137,7 +137,7 @@ func newClient() (*client, error) {
 		return nil, fmt.Errorf("failed to bind to any multicast udp port")
 	}
 
-	c := &client{
+	c := &Client{
 		ipv4MulticastConn: mconn4,
 		ipv6MulticastConn: mconn6,
 		ipv4UnicastConn:   uconn4,
@@ -148,7 +148,7 @@ func newClient() (*client, error) {
 }
 
 // Close is used to cleanup the client
-func (c *client) Close() error {
+func (c *Client) Close() error {
 	if !atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
 		// something else already closed it
 		return nil
@@ -175,7 +175,7 @@ func (c *client) Close() error {
 
 // setInterface is used to set the query interface, uses system
 // default if not provided
-func (c *client) setInterface(iface *net.Interface) error {
+func (c *Client) SetInterface(iface *net.Interface) error {
 	p := ipv4.NewPacketConn(c.ipv4UnicastConn)
 	if err := p.SetMulticastInterface(iface); err != nil {
 		return err
@@ -196,7 +196,7 @@ func (c *client) setInterface(iface *net.Interface) error {
 }
 
 // query is used to perform a lookup and stream results
-func (c *client) query(params *QueryParam) error {
+func (c *Client) Query(params *QueryParam) error {
 	// Create the service name
 	serviceAddr := fmt.Sprintf("%s.%s.", trimDot(params.Service), trimDot(params.Domain))
 
@@ -220,7 +220,7 @@ func (c *client) query(params *QueryParam) error {
 		m.Question[0].Qclass |= 1 << 15
 	}
 	m.RecursionDesired = false
-	if err := c.sendQuery(m); err != nil {
+	if err := c.SendQuery(m); err != nil {
 		return err
 	}
 
@@ -291,7 +291,7 @@ func (c *client) query(params *QueryParam) error {
 				m := new(dns.Msg)
 				m.SetQuestion(inp.Name, dns.TypePTR)
 				m.RecursionDesired = false
-				if err := c.sendQuery(m); err != nil {
+				if err := c.SendQuery(m); err != nil {
 					log.Printf("[ERR] mdns: Failed to query instance %s: %v", inp.Name, err)
 				}
 			}
@@ -302,7 +302,7 @@ func (c *client) query(params *QueryParam) error {
 }
 
 // sendQuery is used to multicast a query out
-func (c *client) sendQuery(q *dns.Msg) error {
+func (c *Client) SendQuery(q *dns.Msg) error {
 	buf, err := q.Pack()
 	if err != nil {
 		return err
@@ -323,7 +323,7 @@ func (c *client) sendQuery(q *dns.Msg) error {
 }
 
 // recv is used to receive until we get a shutdown
-func (c *client) recv(l *net.UDPConn, msgCh chan *dns.Msg) {
+func (c *Client) recv(l *net.UDPConn, msgCh chan *dns.Msg) {
 	if l == nil {
 		return
 	}
