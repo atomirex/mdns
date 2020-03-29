@@ -82,6 +82,11 @@ func Query(params *QueryParam) error {
 		params.Timeout = time.Second
 	}
 
+	go func() {
+		<-time.After(params.Timeout)
+		client.finish <- struct{}{}
+	}()
+
 	// Run the query
 	return client.Query(params)
 }
@@ -104,6 +109,8 @@ type Client struct {
 
 	closed   int32
 	closedCh chan struct{} // TODO(reddaly): This doesn't appear to be used.
+
+	finish chan struct{}
 }
 
 // NewClient creates a new mdns Client that can be used to query
@@ -143,8 +150,13 @@ func NewClient() (*Client, error) {
 		ipv4UnicastConn:   uconn4,
 		ipv6UnicastConn:   uconn6,
 		closedCh:          make(chan struct{}),
+		finish:            make(chan struct{}, 1),
 	}
 	return c, nil
+}
+
+func (c *Client) Finish() {
+	c.finish <- struct{}{}
 }
 
 // Close is used to cleanup the client
@@ -227,8 +239,6 @@ func (c *Client) Query(params *QueryParam) error {
 	// Map the in-progress responses
 	inprogress := make(map[string]*ServiceEntry)
 
-	// Listen until we reach the timeout
-	finish := time.After(params.Timeout)
 	for {
 		select {
 		case resp := <-msgCh:
@@ -295,7 +305,7 @@ func (c *Client) Query(params *QueryParam) error {
 					log.Printf("[ERR] mdns: Failed to query instance %s: %v", inp.Name, err)
 				}
 			}
-		case <-finish:
+		case <-c.finish:
 			return nil
 		}
 	}
