@@ -239,6 +239,8 @@ func (c *Client) Query(params *QueryParam) error {
 	// Map the in-progress responses
 	inprogress := make(map[string]*ServiceEntry)
 
+	ticker := time.NewTicker(60 * time.Second)
+
 	for {
 		select {
 		case resp := <-msgCh:
@@ -279,6 +281,9 @@ func (c *Client) Query(params *QueryParam) error {
 					inp = ensureName(inprogress, rr.Hdr.Name)
 					inp.Addr = rr.AAAA // @Deprecated
 					inp.AddrV6 = rr.AAAA
+
+				default:
+					log.Printf("[INFO] mdns: Unexpected record type %v", rr)
 				}
 			}
 
@@ -306,7 +311,10 @@ func (c *Client) Query(params *QueryParam) error {
 				}
 			}
 		case <-c.finish:
+			ticker.Stop()
 			return nil
+		case <-ticker.C:
+			c.SendQuery(m)
 		}
 	}
 }
