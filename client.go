@@ -239,7 +239,7 @@ func (c *Client) Query(params *QueryParam) error {
 	// Map the in-progress responses
 	inprogress := make(map[string]*ServiceEntry)
 
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 
 	for {
 		select {
@@ -282,8 +282,8 @@ func (c *Client) Query(params *QueryParam) error {
 					inp.Addr = rr.AAAA // @Deprecated
 					inp.AddrV6 = rr.AAAA
 
-				default:
-					log.Printf("[INFO] mdns: Unexpected record type %v", rr)
+					// default:
+					// 	log.Printf("[INFO] mdns: Unexpected record type %v", rr)
 				}
 			}
 
@@ -303,19 +303,32 @@ func (c *Client) Query(params *QueryParam) error {
 				}
 			} else {
 				// Fire off a node specific query
-				m := new(dns.Msg)
-				m.SetQuestion(inp.Name, dns.TypePTR)
-				m.RecursionDesired = false
-				if err := c.SendQuery(m); err != nil {
-					log.Printf("[ERR] mdns: Failed to query instance %s: %v", inp.Name, err)
-				}
+				inp.expand(c)
 			}
 		case <-c.finish:
 			ticker.Stop()
 			return nil
 		case <-ticker.C:
 			c.SendQuery(m)
+
+			// TODO remove this Very temporary hack
+			for _, entry := range inprogress {
+				if !entry.complete() {
+					entry.expand(c)
+					<-time.After(50 * time.Millisecond)
+				}
+			}
 		}
+	}
+}
+
+func (s *ServiceEntry) expand(c *Client) {
+	// Fire off a node specific query
+	m := new(dns.Msg)
+	m.SetQuestion(s.Name, dns.TypePTR)
+	m.RecursionDesired = false
+	if err := c.SendQuery(m); err != nil {
+		log.Printf("[ERR] mdns: Failed to query instance %s: %v", s.Name, err)
 	}
 }
 
