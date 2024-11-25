@@ -1,3 +1,11 @@
+##
+Fork of the Pion mDNS library
+
+Started because Android clients didn't recognize the answers, and so questions have to be in the responses with the answers. Making that change had a small ripple effect.
+
+Looks like it will diverge from Pion more over time.
+
+
 <h1 align="center">
   <br>
   Pion mDNS

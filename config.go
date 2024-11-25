@@ -22,6 +22,25 @@ const (
 	DefaultAddressIPv6 = "[FF02::]:5353"
 )
 
+type HostBinding struct {
+	// Address will override the published address with the given IP
+	// when set. Otherwise, the automatically determined address will be used.
+	AddressIPv4 net.IP
+	// Used for AAAA responses. When set overrides the host derived IP for the
+	// given interface
+	AddressIPv6 net.IP
+	// The interface on which this binding applies. If nil then the binding
+	// applies to all interfaces that are not overridden by other bindings.
+	// Interface field is unique in bindings. To publish both A and AAAA set the
+	// address fields on a single binding per interface.
+	Interface *net.Interface
+}
+
+type RegisteredHost struct {
+	Name     string
+	Bindings []HostBinding
+}
+
 // Config is used to configure a mDNS client or server.
 type Config struct {
 	// Name is the name of the client/server used for logging purposes.
@@ -33,17 +52,12 @@ type Config struct {
 
 	// LocalNames are the names that we will generate answers for
 	// when we get questions
-	LocalNames []string
-
-	// LocalAddress will override the published address with the given IP
-	// when set. Otherwise, the automatically determined address will be used.
-	LocalAddress net.IP
+	LocalNames []RegisteredHost
 
 	LoggerFactory logging.LoggerFactory
 
 	// IncludeLoopback will include loopback interfaces to be eligble for queries and answers.
 	IncludeLoopback bool
 
-	// Interfaces will override the interfaces used for queries and answers.
 	Interfaces []net.Interface
 }

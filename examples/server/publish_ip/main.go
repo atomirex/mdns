@@ -39,8 +39,7 @@ func main() {
 	}
 
 	_, err = mdns.Server(ipv4.NewPacketConn(l4), ipv6.NewPacketConn(l6), &mdns.Config{
-		LocalNames:   []string{"pion-test.local"},
-		LocalAddress: net.ParseIP(*ip),
+		LocalNames: []mdns.RegisteredHost{{Name: "pion-test.local", Bindings: []mdns.HostBinding{{AddressIPv4: net.ParseIP(*ip)}}}},
 	})
 	if err != nil {
 		panic(err)
