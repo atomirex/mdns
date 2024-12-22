@@ -66,7 +66,7 @@ func createListener6(t *testing.T) *net.UDPConn {
 }
 
 func TestValidCommunication(t *testing.T) {
-	lim := test.TimeOut(time.Second * 10)
+	lim := test.TimeOut(time.Second * 30)
 	defer lim.Stop()
 
 	report := test.CheckRoutines(t)

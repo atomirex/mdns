@@ -1265,22 +1265,22 @@ func addrFromAnswer(answer dnsmessage.Resource) (*netip.Addr, error) {
 			if ok {
 				addr = addr.Unmap() // do not want 4-in-6
 				return &addr, nil
-			} else {
-				return nil, fmt.Errorf("failed to create netip.Addr from TypeA resource")
 			}
 		}
+
+		return nil, fmt.Errorf("failed to create netip.Addr from TypeA resource")
 	case dnsmessage.TypeAAAA:
 		if a, ok := answer.Body.(*dnsmessage.AAAAResource); ok {
 			addr, ok := netip.AddrFromSlice(a.AAAA[:])
 			if ok {
 				return &addr, nil
-			} else {
-				return nil, fmt.Errorf("failed to create netip.Addr from TypeAAAA resource")
 			}
 		}
-	}
 
-	return nil, fmt.Errorf("answer has no type for addr extraction")
+		return nil, fmt.Errorf("failed to create netip.Addr from TypeAAAA resource")
+	default:
+		return nil, fmt.Errorf("answer has no type for addr extraction")
+	}
 }
 
 func isSupportedIPv6(addr netip.Addr, ipv6Only bool) bool {
